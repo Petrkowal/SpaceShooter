@@ -9,7 +9,6 @@ dt = 0
 g = 9.81
 CIRCLE_WIDTH = 40
 
-player_pos = pygame.Vector2(screen.get_width() / 2, screen.get_height() / 2)
 
 
 class Player:
@@ -39,6 +38,10 @@ class Player:
         self.vel *= 0.995
         self.pos += self.vel * dt
         self.setpos(self.pos)
+        if 0.1 > self.vel.y > -0.1:
+            self.vel.y = 0
+        if 0.1 > self.vel.x > -0.1:
+            self.vel.x = 0
 
     def place(self, pos):
         self.vel = pygame.Vector2(0, 0)
