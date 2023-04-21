@@ -12,16 +12,28 @@ class Game:
         self.height = height
         self.screen = pygame.display.set_mode((width, height))
         self.clock = pygame.time.Clock()
+        self.enemy_img = pygame.image.load('images/ship.png')
+        self.bullet_img = pygame.image.load('images/bullet.png')
+        self.player_img = pygame.image.load('images/ship.png')
+        self.player_acc_img = pygame.image.load('images/ship_acc.png')
+        self.borders = [0, 0, self.screen.get_width(), self.screen.get_height()]
+        self.keys = []
         self.cooldown = 0
         self.bullets = []
         self.ships = []
         self.player = Player((self.screen.get_width() // 2, self.screen.get_height() // 2),
-                             pygame.image.load('images/ship.png'), pygame.image.load('images/ship_acc.png'))
-        self.borders = [0, 0, self.screen.get_width(), self.screen.get_height()]
-        self.enemy_img = pygame.image.load('images/ship.png')
-        self.bullet_img = pygame.image.load('images/bullet.png')
+                             self.player_img, self.player_acc_img)
         self.enemies = []
-        self.keys = []
+        self.score = 0
+        self.end = False
+
+    def setup(self):
+        self.cooldown = 0
+        self.bullets = []
+        self.ships = []
+        self.player = Player((self.screen.get_width() // 2, self.screen.get_height() // 2),
+                             self.player_img, self.player_acc_img)
+        self.enemies = []
         self.score = 0
         self.end = False
 
@@ -62,26 +74,7 @@ class Game:
             self.enemies.append(
                 Enemy((self.screen.get_width() * b, self.screen.get_height()), (vel[0], vel[1]), self.enemy_img))
 
-    def update(self):
-        dt = self.clock.tick(60) / 1000
-        self.player.update(dt, self.keys, self.borders)
-        while len(self.enemies) < 3:
-            self.new_enemy()
-        to_remove = []
-        for enemy in self.enemies:
-            enemy.update(dt, self.player.pos)
-            if enemy.pos[0] < 0 or enemy.pos[0] > self.screen.get_width() or enemy.pos[1] < 0 or enemy.pos[
-                1] > self.screen.get_height():
-                to_remove.append(enemy)
-            if enemy.cooldown > random.randint(1, 10):
-                enemy.cooldown = 0
-                pos = enemy.pos
-                pos = pygame.Vector2(pos[0], pos[1])
-                self.bullets.append(Bullet(self.bullet_img, pos, enemy.angle, False))
-        for enemy in to_remove:
-            self.enemies.remove(enemy)
-        for bullet in self.bullets:
-            bullet.update(dt)
+    def check_collisions(self):
         for bullet in self.bullets:
             for enemy in self.enemies:
                 if pygame.sprite.collide_mask(enemy, bullet):
@@ -93,6 +86,31 @@ class Game:
                 if not bullet.player:
                     self.bullets.remove(bullet)
                     self.player.hp -= 10
+
+    def update(self):
+        dt = self.clock.tick(60) / 1000
+        self.player.update(dt, self.keys, self.borders)
+        while len(self.enemies) < 3:
+            self.new_enemy()
+        to_remove = []
+        for enemy in self.enemies:
+            enemy.update(dt, self.player.pos)
+            if enemy.pos[0] < 0 or enemy.pos[0] > self.screen.get_width() or enemy.pos[1] < 0 or \
+                    enemy.pos[1] > self.screen.get_height():
+                to_remove.append(enemy)
+            if enemy.cooldown > random.randint(1, 10):
+                enemy.cooldown = 0
+                pos = enemy.pos
+                pos = pygame.Vector2(pos[0], pos[1])
+                self.bullets.append(Bullet(self.bullet_img, pos, enemy.angle, False))
+        for enemy in to_remove:
+            self.enemies.remove(enemy)
+
+        for bullet in self.bullets:
+            bullet.update(dt)
+
+        self.check_collisions()
+
         if self.player.hp <= 0:
             self.end = True
 
@@ -103,16 +121,24 @@ class Game:
             text_rect = text.get_rect()
             text_rect.center = (self.screen.get_width() // 2, self.screen.get_height() // 2)
             self.screen.blit(text, text_rect)
-            font = pygame.font.SysFont('Arial', 72)
             text = font.render(f'Score: {self.score}', True, (255, 0, 0))
             text_rect = text.get_rect()
             text_rect.center = (self.screen.get_width() // 2, self.screen.get_height() // 2 + 100)
+            self.screen.blit(text, text_rect)
+            text = font.render('Press R or Space to restart', True, (255, 0, 0))
+            text_rect = text.get_rect()
+            text_rect.center = (self.screen.get_width() // 2, self.screen.get_height() // 2 + 200)
             self.screen.blit(text, text_rect)
             pygame.display.flip()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     exit()
-            self.clock.tick(10)
+            self.keys = pygame.key.get_pressed()
+            if self.keys[pygame.K_r] or self.keys[pygame.K_SPACE]:
+                self.setup()
+                self.main_loop()
+            else:
+                self.clock.tick(60)
 
     def draw(self):
         self.screen.fill((0, 0, 0))
