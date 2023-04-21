@@ -1,97 +1,12 @@
-import math
-from typing import Tuple
-
+import random
 import pygame
-from pygame.examples.aliens import load_image
-
-
-class CollisionDetector:
-    @staticmethod
-    def detect_collision(ships, bullets):
-        collisions = []
-        for ship in ships:
-            for bullet in bullets:
-                if pygame.sprite.collide_mask(ship, bullet):
-                    collisions.append((ship, bullet))
-        return collisions
-
-
-class Player(pygame.sprite.Sprite):
-    def __init__(self, pos: Tuple, img, img_acc):
-        super().__init__()
-        img_resize_factor = 0.1
-        self.const_img = pygame.transform.scale(img, (
-        img.get_width() * img_resize_factor, img.get_height() * img_resize_factor))
-        self.const_img_acc = pygame.transform.scale(img_acc, (
-        img_acc.get_width() * img_resize_factor, img_acc.get_height() * img_resize_factor))
-        self.image = self.const_img
-        self.rect = self.image.get_rect()
-        self.mask = pygame.mask.from_surface(self.image)
-        self.rot_img = self.image
-        self.pos = pygame.Vector2(pos[0], pos[1])
-        self.vel = pygame.Vector2(0, 0)
-        self.angle = 0
-        self.acceleration = 2
-        self.ang_vel = 90
-        self.max_speed = 3
-
-    def update(self, dt, keys, bounds):
-        if keys[pygame.K_w]:
-            self.vel += pygame.Vector2(0, -self.acceleration).rotate(self.angle) * dt
-            self.image = self.const_img_acc
-        else:
-            self.image = self.const_img
-        if keys[pygame.K_a]:
-            self.angle -= self.ang_vel * dt
-
-        if keys[pygame.K_d]:
-            self.angle += self.ang_vel * dt
-
-        if self.vel.x != 0 or self.vel.y != 0:
-            self.vel = self.vel.normalize() * min(self.vel.length(), self.max_speed)
-
-        self.pos = self.pos[0] + self.vel[0], self.pos[1] + self.vel[1]
-        self.rect = self.rot_img.get_rect(center=self.pos)
-        self.mask = pygame.mask.from_surface(self.rot_img)
-        border_collisions = CollisionDetector.detect_collision([self], bounds)
-
-        if bounds[0] in border_collisions:
-            self.pos = bounds[0], self.pos[1]
-            self.vel[0] = self.vel[0] / 10
-        if bounds[2] in border_collisions:
-            self.pos = bounds[2], self.pos[1]
-            self.vel[0] = self.vel[0] / 10
-        if bounds[1] in border_collisions:
-            self.pos = self.pos[0], bounds[1]
-            self.vel[1] = self.vel[1] / 10
-        if bounds[3] in border_collisions:
-            self.pos = self.pos[0], bounds[3]
-            self.vel[1] = self.vel[1] / 10
-        # self.velocity = self.velocity.normalize() * min(self.velocity.length(), self.max_speed)
-        # self.rect.move_ip(self.velocity.x, self.velocity.y)
-        # self.rect = self.image.get_rect(center=self.rect.center)
-
-    def draw(self, screen):
-        self.rot_img = pygame.transform.rotate(self.image, -self.angle)
-        pos_img = self.pos[0] - self.rot_img.get_width() // 2, self.pos[1] - self.rot_img.get_height() // 2
-        screen.blit(self.rot_img, pos_img)
-
-
-class Bullet(pygame.sprite.Sprite):
-    def __init__(self, image, pos: pygame.Vector2, vel: pygame.Vector2):
-        super().__init__()
-        self.image = image
-        self.pos: pygame.Vector2 = pos
-        self.vel: pygame.Vector2 = vel
-
-    def update(self, dt):
-        self.pos = self.vel * dt
-
-    def draw(self, screen):
-        screen.blit(self.image, self.pos)
+from player import Player
+from enemy import Enemy
+from bullet import Bullet
 
 
 class Game:
+
     def __init__(self, width: int, height: int):
         self.width = width
         self.height = height
@@ -102,44 +17,115 @@ class Game:
         self.ships = []
         self.player = Player((self.screen.get_width() // 2, self.screen.get_height() // 2),
                              pygame.image.load('images/ship.png'), pygame.image.load('images/ship_acc.png'))
-        self.edges = [
-            pygame.Rect(0, 0, self.screen.get_width(), 1),
-            pygame.Rect(0, 0, 1, self.screen.get_height()),
-            pygame.Rect(self.screen.get_width() - 1, 0, 1, self.screen.get_height()),
-            pygame.Rect(0, self.screen.get_height() - 1, self.screen.get_width(), 1)
-        ]
+        self.borders = [0, 0, self.screen.get_width(), self.screen.get_height()]
+        self.enemy_img = pygame.image.load('images/ship.png')
+        self.bullet_img = pygame.image.load('images/bullet.png')
+        self.enemies = []
+        self.keys = []
+        self.score = 0
+        self.end = False
 
     def main_loop(self):
         while True:
             self.handle_keys()
             self.update()
             self.draw()
+            if self.end:
+                break
+        self.game_over()
 
     def handle_keys(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 exit()
+        self.keys = pygame.key.get_pressed()
+        if self.keys[pygame.K_SPACE] and self.player.get_cooldown() > 0.5:
+            self.player.reset_cooldown()
+            pos = self.player.pos + (self.player.image.get_width() // 2, self.player.image.get_height() // 2)
+            pos = pygame.Vector2(pos[0], pos[1])
+            self.bullets.append(Bullet(self.bullet_img, pos, self.player.angle, True))
+
+    def new_enemy(self):
+        a, b = random.randint(0, 3), random.random()
+        if a == 0:
+            vel = pygame.Vector2(100, 0).rotate(random.randint(-30, 30))
+            self.enemies.append(Enemy((0, self.screen.get_height() * b), (vel[0], vel[1]), self.enemy_img))
+        elif a == 1:
+            vel = pygame.Vector2(0, 100).rotate(random.randint(-30, 30))
+            self.enemies.append(Enemy((self.screen.get_width() * b, 0), (vel[0], vel[1]), self.enemy_img))
+        elif a == 2:
+            vel = pygame.Vector2(-100, 0).rotate(random.randint(-30, 30))
+            self.enemies.append(
+                Enemy((self.screen.get_width(), self.screen.get_height() * b), (vel[0], vel[1]), self.enemy_img))
+        elif a == 3:
+            vel = pygame.Vector2(0, -100).rotate(random.randint(-30, 30))
+            self.enemies.append(
+                Enemy((self.screen.get_width() * b, self.screen.get_height()), (vel[0], vel[1]), self.enemy_img))
 
     def update(self):
         dt = self.clock.tick(60) / 1000
-        keys = pygame.key.get_pressed()
-        self.player.update(dt, keys, (0, 0, self.edges))
+        self.player.update(dt, self.keys, self.borders)
+        while len(self.enemies) < 3:
+            self.new_enemy()
+        to_remove = []
+        for enemy in self.enemies:
+            enemy.update(dt, self.player.pos)
+            if enemy.pos[0] < 0 or enemy.pos[0] > self.screen.get_width() or enemy.pos[1] < 0 or enemy.pos[
+                1] > self.screen.get_height():
+                to_remove.append(enemy)
+            if enemy.cooldown > random.randint(1, 10):
+                enemy.cooldown = 0
+                pos = enemy.pos
+                pos = pygame.Vector2(pos[0], pos[1])
+                self.bullets.append(Bullet(self.bullet_img, pos, enemy.angle, False))
+        for enemy in to_remove:
+            self.enemies.remove(enemy)
+        for bullet in self.bullets:
+            bullet.update(dt)
+        for bullet in self.bullets:
+            for enemy in self.enemies:
+                if pygame.sprite.collide_mask(enemy, bullet):
+                    if bullet.player:
+                        self.enemies.remove(enemy)
+                        self.bullets.remove(bullet)
+                        self.score += 1
+            if pygame.sprite.collide_mask(self.player, bullet):
+                if not bullet.player:
+                    self.bullets.remove(bullet)
+                    self.player.hp -= 10
+        if self.player.hp <= 0:
+            self.end = True
 
-        # if keys[pygame.K_LEFT]:
-        #     x -= speed * delta
-        # if keys[pygame.K_RIGHT]:
-        #     x += speed * delta
-        # if keys[pygame.K_UP]:
-        #     y -= speed * delta
-        # if keys[pygame.K_DOWN]:
-        #     y += speed * delta
-        # if keys[pygame.K_SPACE] and self.cooldown >= 0.5:
-        #     pass
+    def game_over(self):
+        while True:
+            font = pygame.font.SysFont('Arial', 72)
+            text = font.render('Game Over', True, (255, 0, 0))
+            text_rect = text.get_rect()
+            text_rect.center = (self.screen.get_width() // 2, self.screen.get_height() // 2)
+            self.screen.blit(text, text_rect)
+            font = pygame.font.SysFont('Arial', 72)
+            text = font.render(f'Score: {self.score}', True, (255, 0, 0))
+            text_rect = text.get_rect()
+            text_rect.center = (self.screen.get_width() // 2, self.screen.get_height() // 2 + 100)
+            self.screen.blit(text, text_rect)
+            pygame.display.flip()
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    exit()
+            self.clock.tick(10)
 
     def draw(self):
         self.screen.fill((0, 0, 0))
-        # self.screen.blit(self.bg_image, (0, 0))
+        for bullet in self.bullets:
+            bullet.draw(self.screen)
         self.player.draw(self.screen)
+        for enemy in self.enemies:
+            enemy.draw(self.screen)
+        font = pygame.font.SysFont('Arial', 48)
+        text = font.render(f'Score: {self.score}', True, (255, 255, 255))
+        text_rect = text.get_rect()
+        text_rect.center = (self.screen.get_width() // 2, 50)
+        self.screen.blit(text, text_rect)
         pygame.display.flip()
 
 
