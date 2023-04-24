@@ -75,10 +75,14 @@ class Game:
                 Enemy((self.screen.get_width() * b, self.screen.get_height()), (vel[0], vel[1]), self.enemy_img))
 
     def check_collisions(self):
+        enemies_to_remove = []
+        bullets_to_remove = []
         for bullet in self.bullets:
             for enemy in self.enemies:
                 if pygame.sprite.collide_mask(enemy, bullet):
                     if bullet.player:
+                        enemies_to_remove.append(enemy)
+                        bullets_to_remove.append(bullet)
                         self.enemies.remove(enemy)
                         self.bullets.remove(bullet)
                         self.score += 1
@@ -86,6 +90,11 @@ class Game:
                 if not bullet.player:
                     self.bullets.remove(bullet)
                     self.player.hp -= 10
+        for e in enemies_to_remove:
+            self.enemies.remove(e)
+        for b in bullets_to_remove:
+            self.bullets.remove(b)
+
 
     def update(self):
         dt = self.clock.tick(60) / 1000
