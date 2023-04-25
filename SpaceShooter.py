@@ -83,8 +83,6 @@ class Game:
                     if bullet.player:
                         enemies_to_remove.append(enemy)
                         bullets_to_remove.append(bullet)
-                        self.enemies.remove(enemy)
-                        self.bullets.remove(bullet)
                         self.score += 1
             if pygame.sprite.collide_mask(self.player, bullet):
                 if not bullet.player:
