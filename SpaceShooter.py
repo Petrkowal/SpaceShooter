@@ -19,6 +19,7 @@ class Game:
         self.borders = [0, 0, self.screen.get_width(), self.screen.get_height()]
         self.keys = []
         self.cooldown = 0
+        self.pause_state = False
         self.bullets = []
         self.ships = []
         self.player = Player((self.screen.get_width() // 2, self.screen.get_height() // 2),
@@ -26,6 +27,8 @@ class Game:
         self.enemies = []
         self.score = 0
         self.end = False
+        self.actual_fps = 0
+        self.frame_count = 0
 
     def setup(self):
         self.cooldown = 0
@@ -46,11 +49,42 @@ class Game:
                 break
         self.game_over()
 
+    def pause(self):
+
+        while True:
+            for event in pygame.event.get():
+
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    quit()
+            keys = pygame.key.get_pressed()
+
+            pause_text = pygame.font.SysFont("comicsansms", 72).render("PAUSE", True, (255, 255, 255))
+            self.screen.blit(pause_text, (self.screen.get_width() // 2 - pause_text.get_width() // 2,
+                                          self.screen.get_height() // 2 - pause_text.get_height() // 2))
+
+            if keys[pygame.K_ESCAPE] or keys[pygame.K_p]:
+                if not self.pause_state:
+                    self.pause_state = True
+                    break
+            else:
+                self.pause_state = False
+            pygame.display.update()
+            self.clock.tick(15) / 1000
+
     def handle_keys(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 exit()
         self.keys = pygame.key.get_pressed()
+
+        if self.keys[pygame.K_ESCAPE] or self.keys[pygame.K_p]:
+            if not self.pause_state:
+                self.pause_state = True
+                self.pause()
+        else:
+            self.pause_state = False
+
         if self.keys[pygame.K_SPACE] and self.player.get_cooldown() > 0.5:
             self.player.reset_cooldown()
             pos = self.player.pos + (self.player.image.get_width() // 2, self.player.image.get_height() // 2)
@@ -91,11 +125,16 @@ class Game:
         for e in enemies_to_remove:
             self.enemies.remove(e)
         for b in bullets_to_remove:
+            if b.player:
+                self.player.hit_counter += 1
             self.bullets.remove(b)
 
 
     def update(self):
         dt = self.clock.tick(60) / 1000
+        self.frame_count += 1
+        if self.frame_count % 15 == 0:
+            self.actual_fps = round(1 / dt)
         self.player.update(dt, self.keys, self.borders)
         while len(self.enemies) < 3:
             self.new_enemy()
@@ -158,6 +197,11 @@ class Game:
         text = font.render(f'Score: {self.score}', True, (255, 255, 255))
         text_rect = text.get_rect()
         text_rect.center = (self.screen.get_width() // 2, 50)
+        self.screen.blit(text, text_rect)
+        font = pygame.font.SysFont('Arial', 24)
+        text = font.render(f'FPS: {self.actual_fps}', True, (255, 255, 255))
+        text_rect = text.get_rect()
+        text_rect.topleft = (10, 10)
         self.screen.blit(text, text_rect)
         pygame.display.flip()
 

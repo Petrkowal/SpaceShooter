@@ -22,6 +22,7 @@ class Player(pygame.sprite.Sprite):
         self.max_speed = 3
         self.cooldown = 0
         self.hp = 100
+        self.hit_counter = 0
 
     def get_cooldown(self):
         return self.cooldown
@@ -44,6 +45,10 @@ class Player(pygame.sprite.Sprite):
 
         if self.vel.x != 0 or self.vel.y != 0:
             self.vel = self.vel.normalize() * min(self.vel.length(), self.max_speed)
+
+        if self.hit_counter >= 5:
+            self.hp += self.hp * 0.1
+            self.hit_counter = 0
 
         self.pos = self.pos[0] + self.vel[0], self.pos[1] + self.vel[1]
         self.mask = pygame.mask.from_surface(pygame.transform.rotate(self.const_img, -self.angle))
